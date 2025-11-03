@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"strings"
 
+	a2acore "github.com/a2aproject/a2a-go/a2a"
 	"github.com/a2aproject/a2a-go/a2agrpc"
 	"github.com/a2aproject/a2a-go/a2asrv"
 	"github.com/gorilla/mux"
@@ -36,6 +37,7 @@ import (
 )
 
 type a2aConfig struct {
+	agentURL string
 }
 
 type a2aLauncher struct {
@@ -49,7 +51,8 @@ func NewLauncher() web.WebSublauncher {
 
 	fs := flag.NewFlagSet("a2a", flag.ContinueOnError)
 
-	// no flags at the moment
+	fs.StringVar(&config.agentURL, "a2a_agent_url", "localhost:8080", "A2A gRPC host URL as advertised in the public agent card. It is used by A2A clients as a connection endpoint.")
+
 	return &a2aLauncher{
 		config: config,
 		flags:  fs,
@@ -93,7 +96,20 @@ func (a *a2aLauncher) WrapHandlers(handler http.Handler, adkConfig *adk.Config) 
 
 // SimpleDescription implements web.WebSublauncher. For A2A no subrouter definition is needed
 func (a *a2aLauncher) SetupSubrouters(router *mux.Router, adkConfig *adk.Config) {
-	// no need to setup subrouters, just return
+	rootAgent := adkConfig.AgentLoader.RootAgent()
+	agentCard := &a2acore.AgentCard{
+		Name:               rootAgent.Name(),
+		Description:        rootAgent.Description(),
+		DefaultInputModes:  []string{"text/plain"},
+		DefaultOutputModes: []string{"text/plain"},
+		URL:                a.config.agentURL,
+		PreferredTransport: a2acore.TransportProtocolGRPC,
+		Skills:             adka2a.BuildAgentSkills(rootAgent),
+		Capabilities:       a2acore.AgentCapabilities{Streaming: true},
+		// gRPC GetAgentCard() method will be serving empty card.
+		SupportsAuthenticatedExtendedCard: false,
+	}
+	router.Handle("/.well-known/agent-card.json", a2asrv.NewStaticAgentCardHandler(agentCard))
 }
 
 // SimpleDescription implements web.WebSublauncher
