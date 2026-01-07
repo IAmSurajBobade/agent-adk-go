@@ -36,39 +36,44 @@ func TestNewModel(t *testing.T) {
 	tests := []struct {
 		name      string
 		modelName string
-		baseURL   string
-		opts      *Options
+		cfg       *ClientConfig
 		wantErr   bool
 	}{
 		{
 			name:      "basic model creation",
 			modelName: "llama3.2",
-			baseURL:   "http://localhost:11434",
-			opts:      nil,
-			wantErr:   false,
+			cfg: &ClientConfig{
+				BaseURL: "http://localhost:11434",
+			},
+			wantErr: false,
 		},
 		{
 			name:      "model with options",
 			modelName: "mistral",
-			baseURL:   "http://localhost:11434",
-			opts: &Options{
+			cfg: &ClientConfig{
+				BaseURL:     "http://localhost:11434",
 				Temperature: float32Ptr(0.7),
 				TopK:        float32Ptr(40),
 			},
 			wantErr: false,
 		},
 		{
+			name:      "nil config uses defaults",
+			modelName: "llama3.2",
+			cfg:       nil,
+			wantErr:   false,
+		},
+		{
 			name:      "empty base URL uses default",
 			modelName: "llama3.2",
-			baseURL:   "",
-			opts:      nil,
+			cfg:       &ClientConfig{},
 			wantErr:   false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewModel(tt.modelName, tt.baseURL, tt.opts)
+			got, err := NewModel(context.Background(), tt.modelName, tt.cfg)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewModel() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -274,7 +279,8 @@ func TestModel_Generate(t *testing.T) {
 			defer server.Close()
 
 			// Create model with mock server
-			testModel, err := NewModel(tt.modelName, server.URL, nil)
+			cfg := &ClientConfig{BaseURL: server.URL}
+			testModel, err := NewModel(context.Background(), tt.modelName, cfg)
 			if err != nil {
 				t.Fatalf("failed to create model: %v", err)
 			}
@@ -379,7 +385,8 @@ func TestModel_GenerateStream(t *testing.T) {
 			}))
 			defer server.Close()
 
-			testModel, err := NewModel(tt.modelName, server.URL, nil)
+			cfg := &ClientConfig{BaseURL: server.URL}
+			testModel, err := NewModel(context.Background(), tt.modelName, cfg)
 			if err != nil {
 				t.Fatalf("failed to create model: %v", err)
 			}
@@ -438,9 +445,10 @@ func TestModel_GenerateStream(t *testing.T) {
 	}
 }
 
-func TestOptions_AllFields(t *testing.T) {
-	// Test that all option fields can be set and are properly converted
-	opts := &Options{
+func TestClientConfig_AllFields(t *testing.T) {
+	// Test that all config fields can be set and are properly converted
+	cfg := &ClientConfig{
+		BaseURL: "", // Will use default
 		// Sampling
 		Temperature: float32Ptr(0.9),
 		TopK:        float32Ptr(50),
@@ -564,7 +572,8 @@ func TestOptions_AllFields(t *testing.T) {
 	}))
 	defer server.Close()
 
-	testModel, err := NewModel("llama3.2", server.URL, opts)
+	cfg.BaseURL = server.URL
+	testModel, err := NewModel(context.Background(), "llama3.2", cfg)
 	if err != nil {
 		t.Fatalf("failed to create model: %v", err)
 	}

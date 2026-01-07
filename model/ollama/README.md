@@ -5,11 +5,12 @@ This package implements the `model.LLM` interface for Ollama models, enabling in
 ## Overview
 
 The Ollama model package provides a complete implementation that:
-- Satisfies the `model.LLM` interface
+- Satisfies the `model.LLM` interface with the same pattern as Gemini
 - Supports both streaming and non-streaming generation
 - Maps data correctly between ADK-Go's `genai` types and Ollama's API format
-- Provides comprehensive configuration options for all Ollama parameters
+- Provides comprehensive configuration options for all Ollama parameters via `ClientConfig`
 - Includes extensive test coverage in tabular format
+- Follows ADK-Go conventions with consistent API design
 
 ## Features
 
@@ -23,7 +24,10 @@ The Ollama model package provides a complete implementation that:
 
 ### Configuration Options
 
-The package provides extensive configuration options covering all Ollama parameters:
+The `ClientConfig` struct provides extensive configuration options covering all Ollama parameters:
+
+#### Connection
+- `BaseURL` - Ollama server URL (default: "http://localhost:11434")
 
 #### Sampling Parameters
 - `Temperature` - Controls randomness (default: 0.8)
@@ -78,8 +82,12 @@ import (
     "google.golang.org/adk/model/ollama"
 )
 
-// Create a new Ollama model
-model, err := ollama.NewModel("llama3.2", "http://localhost:11434", nil)
+// Create a new Ollama model (similar to Gemini pattern)
+ctx := context.Background()
+cfg := &ollama.ClientConfig{
+    BaseURL: "http://localhost:11434",
+}
+model, err := ollama.NewModel(ctx, "llama3.2", cfg)
 if err != nil {
     log.Fatal(err)
 }
@@ -95,7 +103,6 @@ req := &model.LLMRequest{
 }
 
 // Generate response
-ctx := context.Background()
 for resp, err := range model.GenerateContent(ctx, req, false) {
     if err != nil {
         log.Fatal(err)
@@ -104,23 +111,36 @@ for resp, err := range model.GenerateContent(ctx, req, false) {
 }
 ```
 
-### With Custom Options
+### With Custom Configuration
 
 ```go
-opts := &ollama.Options{
+ctx := context.Background()
+cfg := &ollama.ClientConfig{
+    BaseURL:          "http://localhost:11434",
+    // Sampling parameters
     Temperature:      float32Ptr(0.9),
     TopK:             float32Ptr(40),
     TopP:             float32Ptr(0.95),
+    // Context & generation
     NumCtx:           intPtr(4096),
     NumPredict:       intPtr(256),
+    // Repetition control
     RepeatPenalty:    float32Ptr(1.1),
+    // Other options
     Seed:             intPtr(42),
     Stop:             []string{"END", "\n\n"},
     KeepAlive:        durationPtr(5 * time.Minute),
     Format:           "json",
 }
 
-model, err := ollama.NewModel("mistral", "http://localhost:11434", opts)
+model, err := ollama.NewModel(ctx, "mistral", cfg)
+```
+
+### With Nil Config (Uses Defaults)
+
+```go
+// Uses default BaseURL: http://localhost:11434
+model, err := ollama.NewModel(context.Background(), "llama3.2", nil)
 ```
 
 ### Streaming Example
@@ -146,13 +166,14 @@ for resp, err := range model.GenerateContent(ctx, req, true) {
 
 ### Architecture
 
-The implementation follows the pattern established by the Gemini model:
+The implementation follows the same pattern as the Gemini model for consistency:
 
 1. **Model Structure**: `ollamaModel` struct implements the `LLM` interface
-2. **Client Management**: Uses the Ollama API client for HTTP communication
-3. **Content Conversion**: Bidirectional mapping between `genai.Content` and Ollama messages
-4. **Streaming Aggregation**: Uses `llminternal.StreamingResponseAggregator` for consistent streaming behavior
-5. **Options Merging**: Model-level options can be overridden by request-level config
+2. **API Signature**: `NewModel(ctx context.Context, modelName string, cfg *ClientConfig)` matches Gemini pattern
+3. **Client Management**: Uses the Ollama API client for HTTP communication
+4. **Content Conversion**: Bidirectional mapping between `genai.Content` and Ollama messages
+5. **Streaming Aggregation**: Uses `llminternal.StreamingResponseAggregator` for consistent streaming behavior
+6. **Configuration Merging**: Client-level config can be overridden by request-level config
 
 ### Data Mapping
 

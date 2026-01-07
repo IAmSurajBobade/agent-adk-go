@@ -31,15 +31,16 @@ import (
 
 // ollamaModel implements the model.LLM interface for Ollama.
 type ollamaModel struct {
-	client   *api.Client
-	name     string
-	baseURL  string
-	options  *Options
+	client *api.Client
+	name   string
+	config *ClientConfig
 }
 
-// Options contains all configurable parameters for Ollama models.
+// ClientConfig contains configuration for the Ollama client.
 // All fields are optional and will use Ollama defaults if not specified.
-type Options struct {
+type ClientConfig struct {
+	// BaseURL is the Ollama server URL (default: "http://localhost:11434")
+	BaseURL string
 	// Sampling Parameters
 	Temperature      *float32 `json:"temperature,omitempty"`       // Controls randomness (default: 0.8)
 	TopK             *float32 `json:"top_k,omitempty"`             // Top-k sampling
@@ -87,12 +88,17 @@ type Options struct {
 
 // NewModel returns [model.LLM], backed by the Ollama API.
 //
-// It creates a client that connects to the Ollama service at the specified baseURL.
+// It uses the provided context and configuration to initialize the Ollama client.
 // The modelName specifies which Ollama model to use (e.g., "llama3.2", "mistral").
-// Options can be provided to configure model behavior; pass nil to use defaults.
+// The cfg parameter configures the client behavior; pass nil to use defaults.
 //
 // An error is returned if the client fails to initialize.
-func NewModel(modelName string, baseURL string, opts *Options) (model.LLM, error) {
+func NewModel(_ context.Context, modelName string, cfg *ClientConfig) (model.LLM, error) {
+	if cfg == nil {
+		cfg = &ClientConfig{}
+	}
+
+	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "http://localhost:11434"
 	}
@@ -102,22 +108,14 @@ func NewModel(modelName string, baseURL string, opts *Options) (model.LLM, error
 		return nil, fmt.Errorf("failed to create Ollama client: %w", err)
 	}
 
-	// Override base URL if specified
-	if baseURL != "" {
-		if err := client.SetBaseURL(baseURL); err != nil {
-			return nil, fmt.Errorf("failed to set base URL: %w", err)
-		}
-	}
-
-	if opts == nil {
-		opts = &Options{}
+	if err := client.SetBaseURL(baseURL); err != nil {
+		return nil, fmt.Errorf("failed to set base URL: %w", err)
 	}
 
 	return &ollamaModel{
-		name:    modelName,
-		client:  client,
-		baseURL: baseURL,
-		options: opts,
+		name:   modelName,
+		client: client,
+		config: cfg,
 	}, nil
 }
 
@@ -151,12 +149,12 @@ func (m *ollamaModel) generate(ctx context.Context, req *model.LLMRequest) (*mod
 		Options:  m.buildOllamaOptions(req),
 	}
 
-	if m.options != nil {
-		if m.options.KeepAlive != nil {
-			chatReq.KeepAlive = &api.Duration{Duration: *m.options.KeepAlive}
+	if m.config != nil {
+		if m.config.KeepAlive != nil {
+			chatReq.KeepAlive = &api.Duration{Duration: *m.config.KeepAlive}
 		}
-		if m.options.Format != "" {
-			chatReq.Format = m.options.Format
+		if m.config.Format != "" {
+			chatReq.Format = m.config.Format
 		}
 	}
 
@@ -195,12 +193,12 @@ func (m *ollamaModel) generateStream(ctx context.Context, req *model.LLMRequest)
 			Options:  m.buildOllamaOptions(req),
 		}
 
-		if m.options != nil {
-			if m.options.KeepAlive != nil {
-				chatReq.KeepAlive = &api.Duration{Duration: *m.options.KeepAlive}
+		if m.config != nil {
+			if m.config.KeepAlive != nil {
+				chatReq.KeepAlive = &api.Duration{Duration: *m.config.KeepAlive}
 			}
-			if m.options.Format != "" {
-				chatReq.Format = m.options.Format
+			if m.config.Format != "" {
+				chatReq.Format = m.config.Format
 			}
 		}
 
@@ -234,95 +232,95 @@ func (m *ollamaModel) generateStream(ctx context.Context, req *model.LLMRequest)
 	}
 }
 
-// buildOllamaOptions converts Options and LLMRequest config to Ollama API options.
+// buildOllamaOptions converts ClientConfig and LLMRequest config to Ollama API options.
 func (m *ollamaModel) buildOllamaOptions(req *model.LLMRequest) map[string]interface{} {
 	options := make(map[string]interface{})
 
-	// First, apply model-level options
-	if m.options != nil {
-		if m.options.Temperature != nil {
-			options["temperature"] = *m.options.Temperature
+	// First, apply client-level options
+	if m.config != nil {
+		if m.config.Temperature != nil {
+			options["temperature"] = *m.config.Temperature
 		}
-		if m.options.TopK != nil {
-			options["top_k"] = *m.options.TopK
+		if m.config.TopK != nil {
+			options["top_k"] = *m.config.TopK
 		}
-		if m.options.TopP != nil {
-			options["top_p"] = *m.options.TopP
+		if m.config.TopP != nil {
+			options["top_p"] = *m.config.TopP
 		}
-		if m.options.MinP != nil {
-			options["min_p"] = *m.options.MinP
+		if m.config.MinP != nil {
+			options["min_p"] = *m.config.MinP
 		}
-		if m.options.TypicalP != nil {
-			options["typical_p"] = *m.options.TypicalP
+		if m.config.TypicalP != nil {
+			options["typical_p"] = *m.config.TypicalP
 		}
-		if m.options.TFSZ != nil {
-			options["tfs_z"] = *m.options.TFSZ
+		if m.config.TFSZ != nil {
+			options["tfs_z"] = *m.config.TFSZ
 		}
-		if m.options.NumCtx != nil {
-			options["num_ctx"] = *m.options.NumCtx
+		if m.config.NumCtx != nil {
+			options["num_ctx"] = *m.config.NumCtx
 		}
-		if m.options.NumPredict != nil {
-			options["num_predict"] = *m.options.NumPredict
+		if m.config.NumPredict != nil {
+			options["num_predict"] = *m.config.NumPredict
 		}
-		if m.options.NumKeep != nil {
-			options["num_keep"] = *m.options.NumKeep
+		if m.config.NumKeep != nil {
+			options["num_keep"] = *m.config.NumKeep
 		}
-		if m.options.NumBatch != nil {
-			options["num_batch"] = *m.options.NumBatch
+		if m.config.NumBatch != nil {
+			options["num_batch"] = *m.config.NumBatch
 		}
-		if m.options.NumThread != nil {
-			options["num_thread"] = *m.options.NumThread
+		if m.config.NumThread != nil {
+			options["num_thread"] = *m.config.NumThread
 		}
-		if m.options.RepeatLastN != nil {
-			options["repeat_last_n"] = *m.options.RepeatLastN
+		if m.config.RepeatLastN != nil {
+			options["repeat_last_n"] = *m.config.RepeatLastN
 		}
-		if m.options.RepeatPenalty != nil {
-			options["repeat_penalty"] = *m.options.RepeatPenalty
+		if m.config.RepeatPenalty != nil {
+			options["repeat_penalty"] = *m.config.RepeatPenalty
 		}
-		if m.options.PresencePenalty != nil {
-			options["presence_penalty"] = *m.options.PresencePenalty
+		if m.config.PresencePenalty != nil {
+			options["presence_penalty"] = *m.config.PresencePenalty
 		}
-		if m.options.FrequencyPenalty != nil {
-			options["frequency_penalty"] = *m.options.FrequencyPenalty
+		if m.config.FrequencyPenalty != nil {
+			options["frequency_penalty"] = *m.config.FrequencyPenalty
 		}
-		if m.options.PenalizeNewline != nil {
-			options["penalize_newline"] = *m.options.PenalizeNewline
+		if m.config.PenalizeNewline != nil {
+			options["penalize_newline"] = *m.config.PenalizeNewline
 		}
-		if m.options.Mirostat != nil {
-			options["mirostat"] = *m.options.Mirostat
+		if m.config.Mirostat != nil {
+			options["mirostat"] = *m.config.Mirostat
 		}
-		if m.options.MirostatTau != nil {
-			options["mirostat_tau"] = *m.options.MirostatTau
+		if m.config.MirostatTau != nil {
+			options["mirostat_tau"] = *m.config.MirostatTau
 		}
-		if m.options.MirostatEta != nil {
-			options["mirostat_eta"] = *m.options.MirostatEta
+		if m.config.MirostatEta != nil {
+			options["mirostat_eta"] = *m.config.MirostatEta
 		}
-		if m.options.NumGPU != nil {
-			options["num_gpu"] = *m.options.NumGPU
+		if m.config.NumGPU != nil {
+			options["num_gpu"] = *m.config.NumGPU
 		}
-		if m.options.MainGPU != nil {
-			options["main_gpu"] = *m.options.MainGPU
+		if m.config.MainGPU != nil {
+			options["main_gpu"] = *m.config.MainGPU
 		}
-		if m.options.NUMA != nil {
-			options["numa"] = *m.options.NUMA
+		if m.config.NUMA != nil {
+			options["numa"] = *m.config.NUMA
 		}
-		if m.options.LowVRAM != nil {
-			options["low_vram"] = *m.options.LowVRAM
+		if m.config.LowVRAM != nil {
+			options["low_vram"] = *m.config.LowVRAM
 		}
-		if m.options.UseMMap != nil {
-			options["use_mmap"] = *m.options.UseMMap
+		if m.config.UseMMap != nil {
+			options["use_mmap"] = *m.config.UseMMap
 		}
-		if m.options.UseMLock != nil {
-			options["use_mlock"] = *m.options.UseMLock
+		if m.config.UseMLock != nil {
+			options["use_mlock"] = *m.config.UseMLock
 		}
-		if m.options.VocabOnly != nil {
-			options["vocab_only"] = *m.options.VocabOnly
+		if m.config.VocabOnly != nil {
+			options["vocab_only"] = *m.config.VocabOnly
 		}
-		if m.options.Seed != nil {
-			options["seed"] = *m.options.Seed
+		if m.config.Seed != nil {
+			options["seed"] = *m.config.Seed
 		}
-		if m.options.Stop != nil {
-			options["stop"] = m.options.Stop
+		if m.config.Stop != nil {
+			options["stop"] = m.config.Stop
 		}
 	}
 
