@@ -42,12 +42,12 @@ type ClientConfig struct {
 	// BaseURL is the Ollama server URL (default: "http://localhost:11434")
 	BaseURL string
 	// Sampling Parameters
-	Temperature      *float32 `json:"temperature,omitempty"`       // Controls randomness (default: 0.8)
-	TopK             *float32 `json:"top_k,omitempty"`             // Top-k sampling
-	TopP             *float32 `json:"top_p,omitempty"`             // Top-p (nucleus) sampling
-	MinP             *float32 `json:"min_p,omitempty"`             // Minimum probability threshold
-	TypicalP         *float32 `json:"typical_p,omitempty"`         // Typical sampling parameter
-	TFSZ             *float32 `json:"tfs_z,omitempty"`             // Tail free sampling
+	Temperature *float32 `json:"temperature,omitempty"` // Controls randomness (default: 0.8)
+	TopK        *float32 `json:"top_k,omitempty"`       // Top-k sampling
+	TopP        *float32 `json:"top_p,omitempty"`       // Top-p (nucleus) sampling
+	MinP        *float32 `json:"min_p,omitempty"`       // Minimum probability threshold
+	TypicalP    *float32 `json:"typical_p,omitempty"`   // Typical sampling parameter
+	TFSZ        *float32 `json:"tfs_z,omitempty"`       // Tail free sampling
 
 	// Context & Generation
 	NumCtx     *int `json:"num_ctx,omitempty"`     // Context window size (default: 2048)
@@ -57,11 +57,11 @@ type ClientConfig struct {
 	NumThread  *int `json:"num_thread,omitempty"`  // CPU threads to use
 
 	// Repetition Control
-	RepeatLastN      *int     `json:"repeat_last_n,omitempty"`      // How far back to prevent repetition
-	RepeatPenalty    *float32 `json:"repeat_penalty,omitempty"`     // Penalty for repetitions (default: 1.1)
-	PresencePenalty  *float32 `json:"presence_penalty,omitempty"`   // Presence penalty
-	FrequencyPenalty *float32 `json:"frequency_penalty,omitempty"`  // Frequency penalty
-	PenalizeNewline  *bool    `json:"penalize_newline,omitempty"`   // Penalize newline tokens
+	RepeatLastN      *int     `json:"repeat_last_n,omitempty"`     // How far back to prevent repetition
+	RepeatPenalty    *float32 `json:"repeat_penalty,omitempty"`    // Penalty for repetitions (default: 1.1)
+	PresencePenalty  *float32 `json:"presence_penalty,omitempty"`  // Presence penalty
+	FrequencyPenalty *float32 `json:"frequency_penalty,omitempty"` // Frequency penalty
+	PenalizeNewline  *bool    `json:"penalize_newline,omitempty"`  // Penalize newline tokens
 
 	// Mirostat Sampling
 	Mirostat    *int     `json:"mirostat,omitempty"`     // Enable Mirostat (0=disabled, 1/2=enabled)
@@ -69,17 +69,17 @@ type ClientConfig struct {
 	MirostatEta *float32 `json:"mirostat_eta,omitempty"` // Mirostat learning rate
 
 	// Hardware & Performance
-	NumGPU   *int  `json:"num_gpu,omitempty"`   // Number of GPUs to use
-	MainGPU  *int  `json:"main_gpu,omitempty"`  // Main GPU to use
-	NUMA     *bool `json:"numa,omitempty"`      // NUMA support
-	LowVRAM  *bool `json:"low_vram,omitempty"`  // Low VRAM mode
-	UseMMap  *bool `json:"use_mmap,omitempty"`  // Use memory mapping
-	UseMLock *bool `json:"use_mlock,omitempty"` // Use memory locking
+	NumGPU    *int  `json:"num_gpu,omitempty"`    // Number of GPUs to use
+	MainGPU   *int  `json:"main_gpu,omitempty"`   // Main GPU to use
+	NUMA      *bool `json:"numa,omitempty"`       // NUMA support
+	LowVRAM   *bool `json:"low_vram,omitempty"`   // Low VRAM mode
+	UseMMap   *bool `json:"use_mmap,omitempty"`   // Use memory mapping
+	UseMLock  *bool `json:"use_mlock,omitempty"`  // Use memory locking
 	VocabOnly *bool `json:"vocab_only,omitempty"` // Load vocabulary only
 
 	// Other
-	Seed *int      `json:"seed,omitempty"` // Random seed for reproducibility
-	Stop []string  `json:"stop,omitempty"` // Stop sequences
+	Seed *int     `json:"seed,omitempty"` // Random seed for reproducibility
+	Stop []string `json:"stop,omitempty"` // Stop sequences
 
 	// Request-level options
 	KeepAlive *time.Duration `json:"-"` // How long to keep model loaded
@@ -508,12 +508,12 @@ func ollamaChatResponseToLLMResponse(resp *api.ChatResponse, partial bool) *mode
 
 	// Store custom metadata
 	llmResp.CustomMetadata = map[string]any{
-		"model":              resp.Model,
-		"created_at":         resp.CreatedAt,
-		"total_duration":     resp.TotalDuration,
-		"load_duration":      resp.LoadDuration,
+		"model":                resp.Model,
+		"created_at":           resp.CreatedAt,
+		"total_duration":       resp.TotalDuration,
+		"load_duration":        resp.LoadDuration,
 		"prompt_eval_duration": resp.PromptEvalDuration,
-		"eval_duration":      resp.EvalDuration,
+		"eval_duration":        resp.EvalDuration,
 	}
 
 	return llmResp
@@ -537,7 +537,7 @@ func convertGenaiToolsToOllama(tools []*genai.Tool) []api.Tool {
 					Parameters: api.ToolFunctionParams{
 						Type:       "object",
 						Properties: convertSchemaProperties(fd.Parameters),
-						Required:   fd.Parameters.Required,
+						// Required:   fd.Parameters.Required,
 					},
 				},
 			}
